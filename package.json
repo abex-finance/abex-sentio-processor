@@ -1,0 +1,21 @@
+{
+  "name": "abex",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "sentio test",
+    "gen": "sentio gen",
+    "build": "sentio build",
+    "upload": "sentio upload",
+    "postinstall": "sentio gen"
+  },
+  "dependencies": {
+    "@mysten/sui.js": "^0.41.0",
+    "@sentio/sdk": "^2.24.3"
+  },
+  "devDependencies": {
+    "@sentio/cli": "^2.11.2",
+    "typescript": "^5.0.3"
+  }
+}
