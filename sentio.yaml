@@ -1,1 +1,8 @@
 project: abex
+contracts:
+  - chain: sui_mainnet
+    address: "0xceab84acf6bf70f503c3b0627acaff6b3f84cee0f2d7ed53d00fa6c2a168d14f"
+  - chain: sui_mainnet
+    address: "0xb53b0f4174108627fbee72e2498b58d6a2714cded53fac537034c220d26302"
+  - chain: sui_mainnet
+    address: "0x5306f64e312b581766351c07af79c72fcb1cd25147157fdc2f8ad76de9a3fb6a"
