@@ -1,4 +1,4 @@
-import { market } from './types/sui/0xceab84acf6bf70f503c3b0627acaff6b3f84cee0f2d7ed53d00fa6c2a168d14f.js'
+import { market } from './types/sui/0xe625f9b22467751d9adccdb53f12faa64dbebb5343d2f9f52849b012d55809f5.js'
 import { SuiNetwork, SuiWrappedObjectProcessor } from '@sentio/sdk/sui'
 import { getConsts } from './consts/index.js';
 import { ABExParser } from './market.js';
