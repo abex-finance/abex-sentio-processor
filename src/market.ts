@@ -190,6 +190,7 @@ export class ABExParser {
         result.volume = 0;
         break;
       case PositionEventType.LiquidatePositionEvent:
+        event = content.event
         if (event.position_size) {
           result.volume = event.position_size.value / 1e18 + event.delta_realised_pnl.is_positive ? (event.delta_realised_pnl.value.value / 1e18) : (-event.delta_realised_pnl.value.value / 1e18);
           ctx.meter.Counter('Liquidation_USD').add(event.position_size.value / 1e18, {
