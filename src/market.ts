@@ -166,11 +166,6 @@ export class ABExParser {
         result.fee = event.open_fee_amount / (10 ** cdec) * event.collateral_price.value / 1e18;
         result.parsedDetail.collateralPrice = event.collateral_price.value / 1e18;
         result.parsedDetail.indexPrice = event.index_price.value / 1e18;
-        ctx.meter.Counter('Open_Interest').add(event.open_amount, {
-          collateral_token: result.parsedDetail.collateralToken,
-          index_token: result.parsedDetail.indexToken,
-          direction: result.parsedDetail.direction,
-        })
         break;
       case PositionEventType.DecreasePositionSuccessEvent:
         if (content.event) {
@@ -184,11 +179,6 @@ export class ABExParser {
         result.fee = event.decrease_fee_value.value / 1e18 + event.reserving_fee_value.value / 1e18 + (event.funding_fee_value.is_positive ? (event.funding_fee_value.value.value / 1e18) : (-event.funding_fee_value.value.value / 1e18));
         result.parsedDetail.collateralPrice = event.collateral_price.value / 1e18;
         result.parsedDetail.indexPrice = event.index_price.value / 1e18;
-        ctx.meter.Counter('Open_Interest').sub(event.decrease_amount, {
-          collateral_token: result.parsedDetail.collateralToken,
-          index_token: result.parsedDetail.indexToken,
-          direction: result.parsedDetail.direction,
-        })
         break;
       case PositionEventType.DecreaseReservedFromPositionEvent:
         result.volume = 0;
