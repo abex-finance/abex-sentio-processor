@@ -223,6 +223,13 @@ export class ABExParser {
           direction: result.parsedDetail.direction,
           type: 'Position',
         })
+        ctx.meter.Counter('Cumulative_Trading_Volume_USD').add(result.volume, {
+          event_name: result.eventName,
+          collateral_token: result.parsedDetail.collateralToken,
+          index_token: result.parsedDetail.indexToken,
+          direction: result.parsedDetail.direction,
+          type: 'Position',
+        })
         ctx.meter.Gauge('Fee').record(result.fee, {
           event_name: result.eventName,
           collateral_token: result.parsedDetail.collateralToken,
@@ -254,6 +261,11 @@ export class ABExParser {
             from_token: result.parsedDetail.fromToken,
             type: 'Pool',
           })
+          ctx.meter.Counter('Cumulative_Trading_Volume_USD').add(result.volume, {
+            event_name: result.eventName,
+            from_token: result.parsedDetail.fromToken,
+            type: 'Pool',
+          })
           ctx.meter.Gauge('Fee').record(result.fee, {
             event_name: result.eventName,
             from_token: result.parsedDetail.fromToken,
@@ -272,6 +284,11 @@ export class ABExParser {
           to_token: result.parsedDetail.toToken,
           type: 'Pool',
         })
+        ctx.meter.Counter('Cumulative_Trading_Volume_USD').add(result.volume, {
+          event_name: result.eventName,
+          to_token: result.parsedDetail.toToken,
+          type: 'Pool',
+        })
         ctx.meter.Gauge('Fee').record(result.fee, {
           event_name: result.eventName,
           to_token: result.parsedDetail.toToken,
@@ -286,6 +303,12 @@ export class ABExParser {
       case AbexEventType.Swapped:
         result = await this.parsePool(event.type, event.parsedJson, abexEventType, ctx);
         ctx.meter.Gauge('Trading_Volume_USD').record(result.volume, {
+          event_name: result.eventName,
+          from_token: result.parsedDetail.fromToken,
+          to_token: result.parsedDetail.toToken,
+          type: 'Swap',
+        })
+        ctx.meter.Counter('Cumulative_Trading_Volume_USD').add(result.volume, {
           event_name: result.eventName,
           from_token: result.parsedDetail.fromToken,
           to_token: result.parsedDetail.toToken,
