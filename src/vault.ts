@@ -1,4 +1,5 @@
-import { IConsts, suiSymbolToSymbol } from "./consts/index.js";
+import { SuiContext, SuiObjectContext } from "@sentio/sdk/sui";
+import { parseSuiTypeToToken } from "./utils.js";
 
 export interface IVaultInfo {
   vaultToken: string;
@@ -44,19 +45,19 @@ export const parseValue = (field: any): number => {
   }
 };
 
-export function parseVaultInfo(raw: any, consts: IConsts): IVaultInfo {
+export async function parseVaultInfo(raw: any, ctx: SuiObjectContext): Promise<IVaultInfo> {
   const vaultName = raw.fields.name.type;
   const rawTokenType = vaultName.split("<")[1].split(">")[0]
-  const vaultToken = suiSymbolToSymbol(rawTokenType, consts);
+  const vaultToken = await parseSuiTypeToToken(rawTokenType, ctx)
   const vaultFields = raw.fields.value.fields;
 
   return {
-    vaultToken,
-    liquidity: parseValue(vaultFields.liquidity) / (10 ** consts.coins[vaultToken].decimals),
-    reservedAmount: parseValue(vaultFields.reserved_amount) / (10 ** consts.coins[vaultToken].decimals),
+    vaultToken: vaultToken.name,
+    liquidity: parseValue(vaultFields.liquidity) / (10 ** vaultToken.decimal),
+    reservedAmount: parseValue(vaultFields.reserved_amount) / (10 ** vaultToken.decimal),
     unrealisedReservingFeeAmount: parseValue(
       vaultFields.unrealised_reserving_fee_amount
-    ) / (10 ** consts.coins[vaultToken].decimals),
+    ) / (10 ** vaultToken.decimal),
     accReservingRate: parseValue(vaultFields.acc_reserving_rate),
     enabled: vaultFields.enabled,
     weight: parseValue(vaultFields.weight),

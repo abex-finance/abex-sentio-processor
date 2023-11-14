@@ -1,8 +1,12 @@
 import { SuiContext } from "@sentio/sdk/sui";
-import { AbexEventType, PositionEventType } from "./constants.js";
-import { ALP_TOKEN_DECIMALS, getConsts, suiSymbolToSymbol } from "./consts/index.js";
+import { ALP_TOKEN_DECIMALS, AbexEventType, PositionEventType } from "./constants.js";
+import { IToken, parseSuiTypeToToken } from "./utils.js";
 
 export class ABExParser {
+  private async parseTokenType(coinType: string, ctx: SuiContext): Promise<IToken> {
+    return parseSuiTypeToToken(coinType, ctx);
+  }
+
   private parseEventType(typeRaw: string) {
     for (const abexEventType in AbexEventType) {
       if (typeRaw.includes(abexEventType)) {
@@ -21,54 +25,54 @@ export class ABExParser {
     return 'Unknown';
   }
 
-  private parseOrder(typeRaw: string, content: any, abexEventType: AbexEventType, network: string) {
+  private async parseOrder(typeRaw: string, content: any, abexEventType: AbexEventType, ctx: SuiContext) {
     let result = {
       parsedDetail: {
         collateralToken: '',
         indexToken: '',
         direction: '',
         feeToken: '',
+        limitedIndexPrice: 0,
+        collateralPriceThreshold: 0,
       },
       volume: 0,
       eventName: '',
       fee: 0,
     };
 
-    // Split the input on '<' and '>', to isolate the relevant section.
     let relevantPart = typeRaw.split('<')[2].split('>')[0];
-
-    // Split the relevant part on ', ' to get the individual components.
     let components = relevantPart.split(', ');
 
-    const consts = getConsts(network);
-
-    // For each component, split on '::' to get the actual value.
+    // Replacing the usage of consts with async calls to parseSuiTypeToToken
     for (let i = 0; i < components.length; i++) {
       let componentParts = components[i].split('::');
       let value = componentParts[componentParts.length - 1];
+      let tokenInfo = await this.parseTokenType(components[i], ctx);
 
       switch (i) {
         case 0:
-          result.parsedDetail.collateralToken = suiSymbolToSymbol(components[i], consts);
+          result.parsedDetail.collateralToken = tokenInfo.name;
           break;
         case 1:
-          result.parsedDetail.indexToken = suiSymbolToSymbol(components[i], consts);
+          result.parsedDetail.indexToken = tokenInfo.name;
           break;
         case 2:
           result.parsedDetail.direction = value;
           break;
         case 3:
-          result.parsedDetail.feeToken = suiSymbolToSymbol(components[i], consts);
+          result.parsedDetail.feeToken = tokenInfo.name;
           break;
       }
     }
 
     result.eventName = abexEventType;
+    result.parsedDetail.limitedIndexPrice = content.limited_index_price.value / 1e18;
+    result.parsedDetail.collateralPriceThreshold = content.collateral_price_threshold.value / 1e18;
 
     return result;
   }
 
-  private parsePool(typeRaw: string, content: any, abexEventType: AbexEventType, network: string) {
+  private async parsePool(typeRaw: string, content: any, abexEventType: AbexEventType, ctx: SuiContext) {
     let result = {
       parsedDetail: {
         fromToken: '',
@@ -78,33 +82,29 @@ export class ABExParser {
       eventName: '',
       fee: 0,
     };
-
-    // Split the input on '<' and '>', to isolate the relevant section.
+  
     let relevantPart = typeRaw.split('<')[1].split('>')[0];
-
-    // Split the relevant part on ', ' to get the individual components.
     let components = relevantPart.split(', ');
-
-    const consts = getConsts(network);
-
+  
     switch (abexEventType) {
       case AbexEventType.Deposited:
         result.eventName = 'Deposited';
-        result.parsedDetail.fromToken = suiSymbolToSymbol(components[0], consts)
+        result.parsedDetail.fromToken = (await this.parseTokenType(components[0], ctx)).name;
         result.volume = content.mint_amount / (10 ** ALP_TOKEN_DECIMALS) * content.price.value / 1e18;
         result.fee = content.fee_value.value / 1e18;
         break;
       case AbexEventType.Withdrawn:
         result.eventName = 'Withdrawn';
-        result.parsedDetail.toToken = suiSymbolToSymbol(components[0], consts)
+        result.parsedDetail.toToken = (await this.parseTokenType(components[0], ctx)).name;
         result.volume = content.burn_amount / (10 ** ALP_TOKEN_DECIMALS) * content.price.value / 1e18;
         result.fee = content.fee_value.value / 1e18;
         break;
       case AbexEventType.Swapped:
         result.eventName = 'Swapped';
-        result.parsedDetail.fromToken = suiSymbolToSymbol(components[0], consts)
-        result.parsedDetail.toToken = suiSymbolToSymbol(components[1], consts)
-        result.volume = content.dest_amount / (10 ** consts.coins[result.parsedDetail.toToken].decimals) * content.dest_price.value / 1e18;
+        const toToken = await this.parseTokenType(components[1], ctx)
+        result.parsedDetail.fromToken = (await this.parseTokenType(components[0], ctx)).name;
+        result.parsedDetail.toToken = toToken.name;
+        result.volume = content.dest_amount / (10 ** toToken.decimal) * content.dest_price.value / 1e18;
         result.fee = content.fee_value.value / 1e18;
         break;
     }
@@ -112,37 +112,38 @@ export class ABExParser {
     return result;
   }
 
-  private parsePosition(typeRaw: string, content: any, network: string) {
+  private async parsePosition(typeRaw: string, content: any, ctx: SuiContext) {
     let result = {
       parsedDetail: {
         collateralToken: '',
         indexToken: '',
         direction: '',
+        collateralPrice: 0,
+        indexPrice: 0,
       },
       volume: 0,
       eventName: '',
       fee: 0,
     };
-
-    // Split the input on '<' and '>', to isolate the relevant section.
+  
     let relevantPart = typeRaw.split('<')[2].split('>')[0];
-
-    // Split the relevant part on ', ' to get the individual components.
     let components = relevantPart.split(', ');
-
-    const consts = getConsts(network);
-
-    // For each component, split on '::' to get the actual value.
+    let cdec = 0;
+    let idec = 0;
+  
     for (let i = 0; i < components.length; i++) {
       let componentParts = components[i].split('::');
       let value = componentParts[componentParts.length - 1];
-
+      let tokenInfo = await this.parseTokenType(components[i], ctx);
+  
       switch (i) {
         case 0:
-          result.parsedDetail.collateralToken = suiSymbolToSymbol(components[i], consts);
+          result.parsedDetail.collateralToken = tokenInfo.name;
+          cdec = tokenInfo.decimal;
           break;
         case 1:
-          result.parsedDetail.indexToken = suiSymbolToSymbol(components[i], consts);
+          result.parsedDetail.indexToken = tokenInfo.name;
+          idec = tokenInfo.decimal;
           break;
         case 2:
           result.parsedDetail.direction = value;
@@ -161,8 +162,15 @@ export class ABExParser {
         } else {
           event = {}
         }
-        result.volume = event.open_amount / (10 ** consts.coins[result.parsedDetail.indexToken].decimals) * event.index_price.value / 1e18;
-        result.fee = event.open_fee_amount / (10 ** consts.coins[result.parsedDetail.collateralToken].decimals) * event.collateral_price.value / 1e18;
+        result.volume = event.open_amount / (10 ** idec) * event.index_price.value / 1e18;
+        result.fee = event.open_fee_amount / (10 ** cdec) * event.collateral_price.value / 1e18;
+        result.parsedDetail.collateralPrice = event.collateral_price.value / 1e18;
+        result.parsedDetail.indexPrice = event.index_price.value / 1e18;
+        ctx.meter.Counter('Open_Interest').add(event.open_amount, {
+          collateral_token: result.parsedDetail.collateralToken,
+          index_token: result.parsedDetail.indexToken,
+          direction: result.parsedDetail.direction,
+        })
         break;
       case PositionEventType.DecreasePositionSuccessEvent:
         if (content.event) {
@@ -172,8 +180,15 @@ export class ABExParser {
         } else {
           event = {}
         }
-        result.volume = event.decrease_amount / (10 ** consts.coins[result.parsedDetail.indexToken].decimals) * event.index_price.value / 1e18;
+        result.volume = event.decrease_amount / (10 ** idec) * event.index_price.value / 1e18;
         result.fee = event.decrease_fee_value.value / 1e18 + event.reserving_fee_value.value / 1e18 + (event.funding_fee_value.is_positive ? (event.funding_fee_value.value.value / 1e18) : (-event.funding_fee_value.value.value / 1e18));
+        result.parsedDetail.collateralPrice = event.collateral_price.value / 1e18;
+        result.parsedDetail.indexPrice = event.index_price.value / 1e18;
+        ctx.meter.Counter('Open_Interest').sub(event.decrease_amount, {
+          collateral_token: result.parsedDetail.collateralToken,
+          index_token: result.parsedDetail.indexToken,
+          direction: result.parsedDetail.direction,
+        })
         break;
       case PositionEventType.DecreaseReservedFromPositionEvent:
         result.volume = 0;
@@ -185,8 +200,17 @@ export class ABExParser {
         result.volume = 0;
         break;
       case PositionEventType.LiquidatePositionEvent:
-        // FIXME: This is not correct
-        result.volume = 0;
+        if (event.position_size) {
+          result.volume = event.position_size.value / 1e18 + event.delta_realised_pnl.is_positive ? (event.delta_realised_pnl.value.value / 1e18) : (-event.delta_realised_pnl.value.value / 1e18);
+          ctx.meter.Counter('Liquidation_USD').add(event.position_size.value / 1e18, {
+            collateral_token: result.parsedDetail.collateralToken,
+            index_token: result.parsedDetail.indexToken,
+            direction: result.parsedDetail.direction,
+          })
+        } else {
+          // Old version of event, cannot track the volume
+          result.volume = 0;
+        }
         result.fee = content.event.reserving_fee_value.value / 1e18 + (content.event.funding_fee_value.is_positive ? (content.event.funding_fee_value.value.value) / 1e18 : (-content.event.funding_fee_value.value.value / 1e18));
         break;
     }
@@ -194,20 +218,26 @@ export class ABExParser {
   }
 
   public async parse(event: any, ctx: SuiContext) {
-    ctx.client
     const abexEventType = this.parseEventType(event.type);
     let result: any = {}
     switch (abexEventType) {
       case AbexEventType.PositionClaimed:
-        result = await this.parsePosition(event.type, event.parsedJson, 'mainnet');
-        ctx.meter.Counter('volume').add(result.volume, {
+        result = await this.parsePosition(event.type, event.parsedJson, ctx);
+        ctx.meter.Counter('Trading_Volume_USD').add(result.volume, {
           event_name: result.eventName,
           collateral_token: result.parsedDetail.collateralToken,
           index_token: result.parsedDetail.indexToken,
           direction: result.parsedDetail.direction,
           type: 'Position',
         })
-        ctx.meter.Counter('fee').add(result.fee, {
+        ctx.meter.Gauge('Fee').record(result.fee, {
+          event_name: result.eventName,
+          collateral_token: result.parsedDetail.collateralToken,
+          index_token: result.parsedDetail.indexToken,
+          direction: result.parsedDetail.direction,
+          type: 'Position',
+        })
+        ctx.meter.Counter('Cumulative_Fee').add(result.fee, {
           event_name: result.eventName,
           collateral_token: result.parsedDetail.collateralToken,
           index_token: result.parsedDetail.indexToken,
@@ -216,49 +246,65 @@ export class ABExParser {
         })
         break;
       case AbexEventType.OrderCreated:
-        result = await this.parseOrder(event.type, event.parsedJson, abexEventType, 'mainnet');
+        result = await this.parseOrder(event.type, event.parsedJson, abexEventType, ctx);
         break;
       case AbexEventType.OrderExecuted:
-        result = await this.parseOrder(event.type, event.parsedJson, abexEventType, 'mainnet');
-        break;
-      case AbexEventType.OrderCleared:
-        result = await this.parseOrder(event.type, event.parsedJson, abexEventType, 'mainnet');
-        break;
-      case AbexEventType.Deposited:
-        result = await this.parsePool(event.type, event.parsedJson, abexEventType, 'mainnet');
-        ctx.meter.Counter('volume').add(result.volume, {
-          event_name: result.eventName,
-          from_token: result.parsedDetail.fromToken,
-          type: 'Pool',
-        })
-        ctx.meter.Counter('fee').add(result.fee, {
+          result = await this.parseOrder(event.type, event.parsedJson, abexEventType, ctx);
+          break;
+        case AbexEventType.OrderCleared:
+          result = await this.parseOrder(event.type, event.parsedJson, abexEventType, ctx);
+          break;
+        case AbexEventType.Deposited:
+          result = await this.parsePool(event.type, event.parsedJson, abexEventType, ctx);
+          ctx.meter.Counter('Trading_Volume_USD').add(result.volume, {
+            event_name: result.eventName,
+            from_token: result.parsedDetail.fromToken,
+            type: 'Pool',
+          })
+          ctx.meter.Gauge('Fee').record(result.fee, {
+            event_name: result.eventName,
+            from_token: result.parsedDetail.fromToken,
+            type: 'Pool',
+          })
+        ctx.meter.Counter('Cumulative_Fee').add(result.fee, {
           event_name: result.eventName,
           from_token: result.parsedDetail.fromToken,
           type: 'Pool',
         })
         break;
       case AbexEventType.Withdrawn:
-        result = await this.parsePool(event.type, event.parsedJson, abexEventType, 'mainnet');
-        ctx.meter.Counter('volume').add(result.volume, {
+        result = await this.parsePool(event.type, event.parsedJson, abexEventType, ctx);
+        ctx.meter.Counter('Trading_Volume_USD').add(result.volume, {
           event_name: result.eventName,
           to_token: result.parsedDetail.toToken,
           type: 'Pool',
         })
-        ctx.meter.Counter('fee').add(result.fee, {
+        ctx.meter.Gauge('Fee').record(result.fee, {
+          event_name: result.eventName,
+          to_token: result.parsedDetail.toToken,
+          type: 'Pool',
+        })
+        ctx.meter.Counter('Cumulative_Fee').add(result.fee, {
           event_name: result.eventName,
           to_token: result.parsedDetail.toToken,
           type: 'Pool',
         })
         break;
       case AbexEventType.Swapped:
-        result = await this.parsePool(event.type, event.parsedJson, abexEventType, 'mainnet');
-        ctx.meter.Counter('volume').add(result.volume, {
+        result = await this.parsePool(event.type, event.parsedJson, abexEventType, ctx);
+        ctx.meter.Counter('Trading_Volume_USD').add(result.volume, {
           event_name: result.eventName,
           from_token: result.parsedDetail.fromToken,
           to_token: result.parsedDetail.toToken,
           type: 'Swap',
         })
-        ctx.meter.Counter('fee').add(result.fee, {
+        ctx.meter.Gauge('Fee').record(result.fee, {
+          event_name: result.eventName,
+          from_token: result.parsedDetail.fromToken,
+          to_token: result.parsedDetail.toToken,
+          type: 'Swap',
+        })
+        ctx.meter.Counter('Cumulative_Fee').add(result.fee, {
           event_name: result.eventName,
           from_token: result.parsedDetail.fromToken,
           to_token: result.parsedDetail.toToken,
@@ -268,7 +314,7 @@ export class ABExParser {
     }
     const body = event.data_decoded
     const owner = body?.position_name?.fields?.owner || body?.order_name?.owner || event.sender;
-    ctx.eventLogger.emit('user_interaction', {
+    ctx.eventLogger.emit('User_Interaction', {
       distinctId: owner,
       ...result.parsedDetail,
       volume: result.volume,
