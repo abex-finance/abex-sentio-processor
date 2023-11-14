@@ -216,7 +216,7 @@ export class ABExParser {
     switch (abexEventType) {
       case AbexEventType.PositionClaimed:
         result = await this.parsePosition(event.type, event.parsedJson, ctx);
-        ctx.meter.Counter('Trading_Volume_USD').add(result.volume, {
+        ctx.meter.Gauge('Trading_Volume_USD').record(result.volume, {
           event_name: result.eventName,
           collateral_token: result.parsedDetail.collateralToken,
           index_token: result.parsedDetail.indexToken,
@@ -249,7 +249,7 @@ export class ABExParser {
           break;
         case AbexEventType.Deposited:
           result = await this.parsePool(event.type, event.parsedJson, abexEventType, ctx);
-          ctx.meter.Counter('Trading_Volume_USD').add(result.volume, {
+          ctx.meter.Gauge('Trading_Volume_USD').record(result.volume, {
             event_name: result.eventName,
             from_token: result.parsedDetail.fromToken,
             type: 'Pool',
@@ -267,7 +267,7 @@ export class ABExParser {
         break;
       case AbexEventType.Withdrawn:
         result = await this.parsePool(event.type, event.parsedJson, abexEventType, ctx);
-        ctx.meter.Counter('Trading_Volume_USD').add(result.volume, {
+        ctx.meter.Gauge('Trading_Volume_USD').record(result.volume, {
           event_name: result.eventName,
           to_token: result.parsedDetail.toToken,
           type: 'Pool',
@@ -285,7 +285,7 @@ export class ABExParser {
         break;
       case AbexEventType.Swapped:
         result = await this.parsePool(event.type, event.parsedJson, abexEventType, ctx);
-        ctx.meter.Counter('Trading_Volume_USD').add(result.volume, {
+        ctx.meter.Gauge('Trading_Volume_USD').record(result.volume, {
           event_name: result.eventName,
           from_token: result.parsedDetail.fromToken,
           to_token: result.parsedDetail.toToken,
