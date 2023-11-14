@@ -66,7 +66,7 @@ export class ABExParser {
     }
 
     result.eventName = abexEventType;
-    result.parsedDetail.limitedIndexPrice = content.evnet.limited_index_price.value / 1e18;
+    result.parsedDetail.limitedIndexPrice = content.event.limited_index_price.value / 1e18;
     result.parsedDetail.collateralPriceThreshold = content.event.collateral_price_threshold.value / 1e18;
 
     return result;
