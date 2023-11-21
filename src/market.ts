@@ -200,9 +200,6 @@ export class ABExParser {
         event = content.event
         if (event.position_size) {
           result.volume = event.position_size.value / 1e18 + event.delta_realised_pnl.is_positive ? (event.delta_realised_pnl.value.value / 1e18) : (-event.delta_realised_pnl.value.value / 1e18);
-          result.parsedDetail.collateralPrice = event.collateral_price.value / 1e18;
-          result.parsedDetail.indexPrice = event.index_price.value / 1e18;
-          result.parsedDetail.pnl = event.delta_realised_pnl.is_positive ? (event.delta_realised_pnl.value.value / 1e18) : (-event.delta_realised_pnl.value.value / 1e18);
           ctx.meter.Counter('Liquidation_USD').add(event.position_size.value / 1e18, {
             collateral_token: result.parsedDetail.collateralToken,
             index_token: result.parsedDetail.indexToken,
@@ -212,6 +209,9 @@ export class ABExParser {
           // Old version of event, cannot track the volume
           result.volume = 0;
         }
+        result.parsedDetail.collateralPrice = event.collateral_price.value / 1e18;
+        result.parsedDetail.indexPrice = event.index_price.value / 1e18;
+        result.parsedDetail.pnl = event.delta_realised_pnl.is_positive ? (event.delta_realised_pnl.value.value / 1e18) : (-event.delta_realised_pnl.value.value / 1e18);
         result.fee = content.event.reserving_fee_value.value / 1e18 + (content.event.funding_fee_value.is_positive ? (content.event.funding_fee_value.value.value) / 1e18 : (-content.event.funding_fee_value.value.value / 1e18));
         break;
     }
@@ -336,8 +336,7 @@ export class ABExParser {
         })
         break;
     }
-    const body = event.data_decoded
-    const owner = body?.parsedJson?.position_name?.fields?.owner || body?.parsedJson?.order_name?.owner || event.sender;
+    const owner = event?.parsedJson?.position_name?.fields?.owner || event?.parsedJson?.order_name?.owner || event.sender;
     ctx.eventLogger.emit('User_Interaction', {
       distinctId: owner,
       ...result.parsedDetail,
