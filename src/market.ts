@@ -34,6 +34,8 @@ export class ABExParser {
         feeToken: '',
         limitedIndexPrice: 0,
         collateralPriceThreshold: 0,
+        orderId: content?.order_name?.fields?.id || '',
+        positionId: content?.order_name?.position_id || '',
       },
       volume: 0,
       eventName: '',
@@ -122,6 +124,8 @@ export class ABExParser {
         direction: '',
         collateralPrice: 0,
         indexPrice: 0,
+        pnl: 0,
+        positionId: content?.position_name?.fields?.id || content?.claim?.position_name?.fields?.id || '',
       },
       volume: 0,
       eventName: '',
@@ -181,6 +185,7 @@ export class ABExParser {
         result.fee = event.decrease_fee_value.value / 1e18 + event.reserving_fee_value.value / 1e18 + (event.funding_fee_value.is_positive ? (event.funding_fee_value.value.value / 1e18) : (-event.funding_fee_value.value.value / 1e18));
         result.parsedDetail.collateralPrice = event.collateral_price.value / 1e18;
         result.parsedDetail.indexPrice = event.index_price.value / 1e18;
+        result.parsedDetail.pnl = event.delta_realised_pnl.is_positive ? (event.delta_realised_pnl.value.value / 1e18) : (-event.delta_realised_pnl.value.value / 1e18);
         break;
       case PositionEventType.DecreaseReservedFromPositionEvent:
         result.volume = 0;
@@ -195,6 +200,9 @@ export class ABExParser {
         event = content.event
         if (event.position_size) {
           result.volume = event.position_size.value / 1e18 + event.delta_realised_pnl.is_positive ? (event.delta_realised_pnl.value.value / 1e18) : (-event.delta_realised_pnl.value.value / 1e18);
+          result.parsedDetail.collateralPrice = event.collateral_price.value / 1e18;
+          result.parsedDetail.indexPrice = event.index_price.value / 1e18;
+          result.parsedDetail.pnl = event.delta_realised_pnl.is_positive ? (event.delta_realised_pnl.value.value / 1e18) : (-event.delta_realised_pnl.value.value / 1e18);
           ctx.meter.Counter('Liquidation_USD').add(event.position_size.value / 1e18, {
             collateral_token: result.parsedDetail.collateralToken,
             index_token: result.parsedDetail.indexToken,
@@ -329,7 +337,7 @@ export class ABExParser {
         break;
     }
     const body = event.data_decoded
-    const owner = body?.position_name?.fields?.owner || body?.order_name?.owner || event.sender;
+    const owner = body?.parsedJson?.position_name?.fields?.owner || body?.parsedJson?.order_name?.owner || event.sender;
     ctx.eventLogger.emit('User_Interaction', {
       distinctId: owner,
       ...result.parsedDetail,
