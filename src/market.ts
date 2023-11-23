@@ -185,7 +185,7 @@ export class ABExParser {
         result.fee = event.decrease_fee_value.value / 1e18 + event.reserving_fee_value.value / 1e18 + (event.funding_fee_value.is_positive ? (event.funding_fee_value.value.value / 1e18) : (-event.funding_fee_value.value.value / 1e18));
         result.parsedDetail.collateralPrice = event.collateral_price.value / 1e18;
         result.parsedDetail.indexPrice = event.index_price.value / 1e18;
-        result.parsedDetail.pnl = event.delta_realised_pnl.is_positive ? (event.delta_realised_pnl.value.value / 1e18) : (-event.delta_realised_pnl.value.value / 1e18);
+        result.parsedDetail.pnl = -(event.delta_realised_pnl.is_positive ? (event.delta_realised_pnl.value.value / 1e18) : (-event.delta_realised_pnl.value.value / 1e18));
         break;
       case PositionEventType.DecreaseReservedFromPositionEvent:
         result.volume = 0;
@@ -198,8 +198,9 @@ export class ABExParser {
         break;
       case PositionEventType.LiquidatePositionEvent:
         event = content.event
+        const pnl = -(event.delta_realised_pnl.is_positive ? (event.delta_realised_pnl.value.value / 1e18) : (-event.delta_realised_pnl.value.value / 1e18))
         if (event.position_size) {
-          result.volume = event.position_size.value / 1e18 + event.delta_realised_pnl.is_positive ? (event.delta_realised_pnl.value.value / 1e18) : (-event.delta_realised_pnl.value.value / 1e18);
+          result.volume = event.position_size.value / 1e18 + pnl;
           ctx.meter.Counter('Liquidation_USD').add(event.position_size.value / 1e18, {
             collateral_token: result.parsedDetail.collateralToken,
             index_token: result.parsedDetail.indexToken,
@@ -211,7 +212,7 @@ export class ABExParser {
         }
         result.parsedDetail.collateralPrice = event.collateral_price.value / 1e18;
         result.parsedDetail.indexPrice = event.index_price.value / 1e18;
-        result.parsedDetail.pnl = event.delta_realised_pnl.is_positive ? (event.delta_realised_pnl.value.value / 1e18) : (-event.delta_realised_pnl.value.value / 1e18);
+        result.parsedDetail.pnl = pnl
         result.fee = content.event.reserving_fee_value.value / 1e18 + (content.event.funding_fee_value.is_positive ? (content.event.funding_fee_value.value.value) / 1e18 : (-content.event.funding_fee_value.value.value / 1e18));
         break;
     }
