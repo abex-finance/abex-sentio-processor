@@ -24,4 +24,9 @@ export enum PositionEventType {
 
 export const ALP_TOKEN_DECIMALS = 6;
 export const ABEX_PACKAGE_ADDRESS = '0xceab84acf6bf70f503c3b0627acaff6b3f84cee0f2d7ed53d00fa6c2a168d14f'
+export const ABEX_PACKAGE_ADDRESSES = [
+  '0xceab84acf6bf70f503c3b0627acaff6b3f84cee0f2d7ed53d00fa6c2a168d14f',
+  // '0xe625f9b22467751d9adccdb53f12faa64dbebb5343d2f9f52849b012d55809f5',
+  // '0xc64701f8adc8852586aef50cc834dfc01740fee871944946c659fb3747f8f5e7',
+]
 export const ABEX_VAULTS_PARENT = '0x3c6595e543c4766dd63b5b2fa918516bac2920bc1944da068be031dced46a18d'

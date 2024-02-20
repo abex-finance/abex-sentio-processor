@@ -3,23 +3,25 @@ import { SuiNetwork, SuiWrappedObjectProcessor } from '@sentio/sdk/sui'
 import { ABExParser } from './market.js';
 import { parseVaultInfo } from './vault.js';
 import { getPriceByType } from '@sentio/sdk/utils';
-import { ABEX_PACKAGE_ADDRESS, ABEX_VAULTS_PARENT } from './constants.js';
+import { ABEX_PACKAGE_ADDRESSES, ABEX_VAULTS_PARENT } from './constants.js';
 
 
 const abexParser = new ABExParser();
 
-market.bind({
-  address: ABEX_PACKAGE_ADDRESS,
-  network: SuiNetwork.MAIN_NET,
-  startCheckpoint: 9724618n,
-})
-  .onEventPositionClaimed(abexParser.parse.bind(abexParser))
-  .onEventOrderCreated(abexParser.parse.bind(abexParser))
-  .onEventOrderExecuted(abexParser.parse.bind(abexParser))
-  .onEventOrderCleared(abexParser.parse.bind(abexParser))
-  .onEventDeposited(abexParser.parse.bind(abexParser))
-  .onEventWithdrawn(abexParser.parse.bind(abexParser))
-  .onEventSwapped(abexParser.parse.bind(abexParser))
+for (const address of ABEX_PACKAGE_ADDRESSES) {
+  market.bind({
+    address,
+    network: SuiNetwork.MAIN_NET,
+    startCheckpoint: 9724618n,
+  })
+    .onEventPositionClaimed(abexParser.parse.bind(abexParser))
+    .onEventOrderCreated(abexParser.parse.bind(abexParser))
+    .onEventOrderExecuted(abexParser.parse.bind(abexParser))
+    .onEventOrderCleared(abexParser.parse.bind(abexParser))
+    .onEventDeposited(abexParser.parse.bind(abexParser))
+    .onEventWithdrawn(abexParser.parse.bind(abexParser))
+    .onEventSwapped(abexParser.parse.bind(abexParser))
+}
 
 SuiWrappedObjectProcessor.bind({
   objectId: ABEX_VAULTS_PARENT,
