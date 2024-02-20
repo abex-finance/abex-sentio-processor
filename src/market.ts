@@ -1,5 +1,5 @@
 import { SuiContext } from "@sentio/sdk/sui";
-import { ALP_TOKEN_DECIMALS, AbexEventType, PositionEventType } from "./constants.js";
+import { ALP_TOKEN_DECIMALS, AbexEventType, PositionEventType, ABEX_REFERRAL_PARENT } from "./constants.js";
 import { IToken, parseSuiTypeToToken } from "./utils.js";
 
 export class ABExParser {
@@ -23,6 +23,21 @@ export class ABExParser {
       }
     }
     return 'Unknown';
+  }
+
+  private async getReferralData(ctx: SuiContext, referree: string): Promise<string | null> {
+    const raw = await ctx.client.getDynamicFieldObject({
+      parentId: ABEX_REFERRAL_PARENT,
+      name: {
+        type: "address",
+        value: referree,
+      }
+    })
+    if (raw.error) {
+      return null;
+    } else {
+      return (raw.data as any).content.fields.value.fields.referrer
+    }
   }
 
   private async parseOrder(typeRaw: string, content: any, abexEventType: AbexEventType, ctx: SuiContext) {
@@ -116,7 +131,7 @@ export class ABExParser {
     return result;
   }
 
-  private async parsePosition(typeRaw: string, content: any, ctx: SuiContext) {
+  private async parsePosition(typeRaw: string, content: any, ctx: SuiContext, owner: string) {
     let result = {
       parsedDetail: {
         collateralToken: '',
@@ -126,10 +141,13 @@ export class ABExParser {
         indexPrice: 0,
         pnl: 0,
         positionId: content?.position_name?.fields?.id || content?.claim?.position_name?.fields?.id || '',
+        rebateAmount: 0,
+        referralReceiver: '',
       },
       volume: 0,
       eventName: '',
       fee: 0,
+      rebate: 0,
     };
   
     let relevantPart = typeRaw.split('<')[2].split('>')[0];
@@ -170,8 +188,11 @@ export class ABExParser {
         }
         result.volume = event.open_amount / (10 ** idec) * event.index_price.value / 1e18;
         result.fee = event.open_fee_amount / (10 ** cdec) * event.collateral_price.value / 1e18;
+        result.parsedDetail.rebateAmount = event.rebate_amount / 1e18;
+        result.rebate = event.rebate_amount / (10 ** cdec) * event.collateral_price.value / 1e18;
         result.parsedDetail.collateralPrice = event.collateral_price.value / 1e18;
         result.parsedDetail.indexPrice = event.index_price.value / 1e18;
+        result.parsedDetail.referralReceiver = await this.getReferralData(ctx, owner) || '';
         break;
       case PositionEventType.DecreasePositionSuccessEvent:
         if (content.event) {
@@ -183,9 +204,12 @@ export class ABExParser {
         }
         result.volume = event.decrease_amount / (10 ** idec) * event.index_price.value / 1e18;
         result.fee = event.decrease_fee_value.value / 1e18 + event.reserving_fee_value.value / 1e18 + (event.funding_fee_value.is_positive ? (event.funding_fee_value.value.value / 1e18) : (-event.funding_fee_value.value.value / 1e18));
+        result.parsedDetail.rebateAmount = event.rebate_amount / 1e18;
+        result.rebate = event.rebate_amount / (10 ** cdec) * event.collateral_price.value / 1e18;
         result.parsedDetail.collateralPrice = event.collateral_price.value / 1e18;
         result.parsedDetail.indexPrice = event.index_price.value / 1e18;
         result.parsedDetail.pnl = -(event.delta_realised_pnl.is_positive ? (event.delta_realised_pnl.value.value / 1e18) : (-event.delta_realised_pnl.value.value / 1e18));
+        result.parsedDetail.referralReceiver = await this.getReferralData(ctx, owner) || '';
         break;
       case PositionEventType.DecreaseReservedFromPositionEvent:
         result.volume = 0;
@@ -222,9 +246,10 @@ export class ABExParser {
   public async parse(event: any, ctx: SuiContext) {
     const abexEventType = this.parseEventType(event.type);
     let result: any = {}
+    const owner = event?.parsedJson?.position_name?.fields?.owner || event?.parsedJson?.order_name?.owner || event.sender;
     switch (abexEventType) {
       case AbexEventType.PositionClaimed:
-        result = await this.parsePosition(event.type, event.parsedJson, ctx);
+        result = await this.parsePosition(event.type, event.parsedJson, ctx, owner);
         ctx.meter.Gauge('Trading_Volume_USD').record(result.volume, {
           event_name: result.eventName,
           collateral_token: result.parsedDetail.collateralToken,
@@ -336,8 +361,14 @@ export class ABExParser {
           type: 'Swap',
         })
         break;
+      case AbexEventType.ReferralAdded:
+        ctx.eventLogger.emit('Referral_Added', {
+          distinctId: event.sender,
+          referralReferrer: event.parsedJson.referrer,
+          referralSender: event.parsedJson.owner,
+        })
+        break;
     }
-    const owner = event?.parsedJson?.position_name?.fields?.owner || event?.parsedJson?.order_name?.owner || event.sender;
     ctx.eventLogger.emit('User_Interaction', {
       distinctId: owner,
       ...result.parsedDetail,

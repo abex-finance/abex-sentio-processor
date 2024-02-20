@@ -9,6 +9,7 @@ export enum AbexEventType {
   OrderCreated = 'OrderCreated',
   OrderExecuted = 'OrderExecuted',
   OrderCleared = 'OrderCleared',
+  ReferralAdded = 'ReferralAdded',
 }
 
 export enum PositionEventType {
@@ -30,3 +31,5 @@ export const ABEX_PACKAGE_ADDRESSES = [
   // '0xc64701f8adc8852586aef50cc834dfc01740fee871944946c659fb3747f8f5e7',
 ]
 export const ABEX_VAULTS_PARENT = '0x3c6595e543c4766dd63b5b2fa918516bac2920bc1944da068be031dced46a18d'
+export const ABEX_REFERRAL_PARENT = '0xbf981cf3f532dc8e4f236554ba4dd6e0e3c4844b5cf877f9012a932c3d0bf639'
+export const ABEX_MARKET = '0x7705d4670e7ef4623d6392888f73f6773b5f0218b6cb1486a4be238692a58bca'
