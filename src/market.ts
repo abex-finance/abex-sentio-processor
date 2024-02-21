@@ -192,7 +192,9 @@ export class ABExParser {
         result.rebate = event.rebate_amount / (10 ** cdec) * event.collateral_price.value / 1e18;
         result.parsedDetail.collateralPrice = event.collateral_price.value / 1e18;
         result.parsedDetail.indexPrice = event.index_price.value / 1e18;
-        result.parsedDetail.referralReceiver = await this.getReferralData(ctx, owner) || '';
+        if (result.rebate > 0) {
+          result.parsedDetail.referralReceiver = await this.getReferralData(ctx, owner) || '';
+        }
         break;
       case PositionEventType.DecreasePositionSuccessEvent:
         if (content.event) {
@@ -209,7 +211,9 @@ export class ABExParser {
         result.parsedDetail.collateralPrice = event.collateral_price.value / 1e18;
         result.parsedDetail.indexPrice = event.index_price.value / 1e18;
         result.parsedDetail.pnl = -(event.delta_realised_pnl.is_positive ? (event.delta_realised_pnl.value.value / 1e18) : (-event.delta_realised_pnl.value.value / 1e18));
-        result.parsedDetail.referralReceiver = await this.getReferralData(ctx, owner) || '';
+        if (result.rebate > 0) {
+          result.parsedDetail.referralReceiver = await this.getReferralData(ctx, owner) || '';
+        }
         break;
       case PositionEventType.DecreaseReservedFromPositionEvent:
         result.volume = 0;
