@@ -101,10 +101,10 @@ export class ABExParser {
       eventName: '',
       fee: 0,
     };
-  
+
     let relevantPart = typeRaw.split('<')[1].split('>')[0];
     let components = relevantPart.split(', ');
-  
+
     switch (abexEventType) {
       case AbexEventType.Deposited:
         result.eventName = 'Deposited';
@@ -143,23 +143,23 @@ export class ABExParser {
         positionId: content?.position_name?.fields?.id || content?.claim?.position_name?.fields?.id || '',
         rebateAmount: 0,
         referralReceiver: '',
+        rebate: 0,
       },
       volume: 0,
       eventName: '',
       fee: 0,
-      rebate: 0,
     };
-  
+
     let relevantPart = typeRaw.split('<')[2].split('>')[0];
     let components = relevantPart.split(', ');
     let cdec = 0;
     let idec = 0;
-  
+
     for (let i = 0; i < components.length; i++) {
       let componentParts = components[i].split('::');
       let value = componentParts[componentParts.length - 1];
       let tokenInfo = await this.parseTokenType(components[i], ctx);
-  
+
       switch (i) {
         case 0:
           result.parsedDetail.collateralToken = tokenInfo.name;
@@ -188,11 +188,11 @@ export class ABExParser {
         }
         result.volume = event.open_amount / (10 ** idec) * event.index_price.value / 1e18;
         result.fee = event.open_fee_amount / (10 ** cdec) * event.collateral_price.value / 1e18;
-        result.parsedDetail.rebateAmount = event.rebate_amount / 1e18;
-        result.rebate = event.rebate_amount / (10 ** cdec) * event.collateral_price.value / 1e18;
+        result.parsedDetail.rebateAmount = event.rebate_amount / (10 ** cdec);
+        result.parsedDetail.rebate = event.rebate_amount / (10 ** cdec) * event.collateral_price.value / 1e18;
         result.parsedDetail.collateralPrice = event.collateral_price.value / 1e18;
         result.parsedDetail.indexPrice = event.index_price.value / 1e18;
-        if (result.rebate > 0) {
+        if (result.parsedDetail.rebate > 0) {
           result.parsedDetail.referralReceiver = await this.getReferralData(ctx, owner) || '';
         }
         break;
@@ -206,12 +206,12 @@ export class ABExParser {
         }
         result.volume = event.decrease_amount / (10 ** idec) * event.index_price.value / 1e18;
         result.fee = event.decrease_fee_value.value / 1e18 + event.reserving_fee_value.value / 1e18 + (event.funding_fee_value.is_positive ? (event.funding_fee_value.value.value / 1e18) : (-event.funding_fee_value.value.value / 1e18));
-        result.parsedDetail.rebateAmount = event.rebate_amount / 1e18;
-        result.rebate = event.rebate_amount / (10 ** cdec) * event.collateral_price.value / 1e18;
+        result.parsedDetail.rebateAmount = event.rebate_amount / (10 ** cdec);
+        result.parsedDetail.rebate = event.rebate_amount / (10 ** cdec) * event.collateral_price.value / 1e18;
         result.parsedDetail.collateralPrice = event.collateral_price.value / 1e18;
         result.parsedDetail.indexPrice = event.index_price.value / 1e18;
         result.parsedDetail.pnl = -(event.delta_realised_pnl.is_positive ? (event.delta_realised_pnl.value.value / 1e18) : (-event.delta_realised_pnl.value.value / 1e18));
-        if (result.rebate > 0) {
+        if (result.parsedDetail.rebate > 0) {
           result.parsedDetail.referralReceiver = await this.getReferralData(ctx, owner) || '';
         }
         break;
@@ -287,28 +287,28 @@ export class ABExParser {
         result = await this.parseOrder(event.type, event.parsedJson, abexEventType, ctx);
         break;
       case AbexEventType.OrderExecuted:
-          result = await this.parseOrder(event.type, event.parsedJson, abexEventType, ctx);
-          break;
-        case AbexEventType.OrderCleared:
-          result = await this.parseOrder(event.type, event.parsedJson, abexEventType, ctx);
-          break;
-        case AbexEventType.Deposited:
-          result = await this.parsePool(event.type, event.parsedJson, abexEventType, ctx);
-          ctx.meter.Gauge('Trading_Volume_USD').record(result.volume, {
-            event_name: result.eventName,
-            from_token: result.parsedDetail.fromToken,
-            type: 'Pool',
-          })
-          ctx.meter.Counter('Cumulative_Trading_Volume_USD').add(result.volume, {
-            event_name: result.eventName,
-            from_token: result.parsedDetail.fromToken,
-            type: 'Pool',
-          })
-          ctx.meter.Gauge('Fee').record(result.fee, {
-            event_name: result.eventName,
-            from_token: result.parsedDetail.fromToken,
-            type: 'Pool',
-          })
+        result = await this.parseOrder(event.type, event.parsedJson, abexEventType, ctx);
+        break;
+      case AbexEventType.OrderCleared:
+        result = await this.parseOrder(event.type, event.parsedJson, abexEventType, ctx);
+        break;
+      case AbexEventType.Deposited:
+        result = await this.parsePool(event.type, event.parsedJson, abexEventType, ctx);
+        ctx.meter.Gauge('Trading_Volume_USD').record(result.volume, {
+          event_name: result.eventName,
+          from_token: result.parsedDetail.fromToken,
+          type: 'Pool',
+        })
+        ctx.meter.Counter('Cumulative_Trading_Volume_USD').add(result.volume, {
+          event_name: result.eventName,
+          from_token: result.parsedDetail.fromToken,
+          type: 'Pool',
+        })
+        ctx.meter.Gauge('Fee').record(result.fee, {
+          event_name: result.eventName,
+          from_token: result.parsedDetail.fromToken,
+          type: 'Pool',
+        })
         ctx.meter.Counter('Cumulative_Fee').add(result.fee, {
           event_name: result.eventName,
           from_token: result.parsedDetail.fromToken,
