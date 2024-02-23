@@ -1,4 +1,4 @@
-import { market } from './types/sui/0xe625f9b22467751d9adccdb53f12faa64dbebb5343d2f9f52849b012d55809f5.js'
+import { market } from './types/sui/0xf0b7464ceaecd8ade482537c8720bfa40985a86ed4249e0bf41c4ec6a01a1ed6.js'
 import { SuiNetwork, SuiObjectProcessor, SuiWrappedObjectProcessor } from '@sentio/sdk/sui'
 import { ABExParser } from './market.js';
 import { parseVaultInfo } from './vault.js';
@@ -21,6 +21,7 @@ for (const address of ABEX_PACKAGE_ADDRESSES) {
     .onEventDeposited(abexParser.parse.bind(abexParser))
     .onEventWithdrawn(abexParser.parse.bind(abexParser))
     .onEventSwapped(abexParser.parse.bind(abexParser))
+    .onEventReferralAdded(abexParser.parse.bind(abexParser))
 }
 
 SuiWrappedObjectProcessor.bind({
